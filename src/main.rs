@@ -1,5 +1,6 @@
 use reqwest::Error;
 use serde::Deserialize;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -11,17 +12,26 @@ async fn main() -> Result<(), Error> {
 
     println!("\nNearby Comets:");
     for comet in comet_data {
-        println!("{:?}", comet);
+        println!(
+            "Name: {}, Close Approach Date: {}, Miss Distance (km): {}",
+            comet.name, comet.close_approach_date, comet.miss_distance
+        );
     }
 
     println!("\nStars:");
     for star in star_data {
-        println!("{:?}", star);
+        println!(
+            "Name: {}, Distance: {} light years, Constellation: {}",
+            star.name, star.distance, star.constellation
+        );
     }
 
     println!("\nSpace Programs:");
     for program in space_program_data {
-        println!("{:?}", program);
+        println!(
+            "Name: {}, Description: {}, Agency: {}",
+            program.name, program.description, program.agency
+        );
     }
 
     Ok(())
@@ -37,8 +47,12 @@ struct Comet {
 }
 
 async fn fetch_nearby_comets() -> Result<Vec<Comet>, Error> {
-    let url = "https://api.nasa.gov/neo/rest/v1/feed?start_date=2024-06-06&end_date=2024-06-13&api_key=DEMO_KEY";
-    let response = reqwest::get(url).await?.json::<serde_json::Value>().await?;
+    let api_key = env::var("NASA_API_KEY").unwrap_or_else(|_| "DEMO_KEY".to_string());
+    let url = format!(
+        "https://api.nasa.gov/neo/rest/v1/feed?start_date=2024-06-06&end_date=2024-06-13&api_key={}",
+        api_key
+    );
+    let response = reqwest::get(&url).await?.json::<serde_json::Value>().await?;
     let comets = response["near_earth_objects"]
         .as_object()
         .unwrap()
