@@ -1,6 +1,7 @@
 use reqwest::Error;
 use serde::Deserialize;
 use std::env;
+use std::io::{self, Write};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -9,23 +10,57 @@ async fn main() -> Result<(), Error> {
     let comet_data = fetch_nearby_comets().await?;
     let space_program_data = fetch_space_programs().await?;
 
-    println!("\nNearby Comets:");
-    for comet in comet_data {
-        println!(
-            "Name: {}, Close Approach Date: {:?}, Miss Distance (km): {:?}",
-            comet.name, comet.close_approach_date, comet.miss_distance
-        );
+    let comet_choice = get_user_choice("Do you want to see the comet data? (yes/no): ");
+    let comet_limit = if comet_choice.to_lowercase() == "yes" {
+        get_user_input("How many comets do you want to see?: ").parse::<usize>().unwrap_or(10)
+    } else {
+        0
+    };
+
+    let space_program_choice = get_user_choice("Do you want to see the space program data? (yes/no): ");
+    let space_program_limit = if space_program_choice.to_lowercase() == "yes" {
+        get_user_input("How many space programs do you want to see?: ").parse::<usize>().unwrap_or(10)
+    } else {
+        0
+    };
+
+    if comet_limit > 0 {
+        println!("\nNearby Comets:");
+        for comet in comet_data.into_iter().take(comet_limit) {
+            println!(
+                "Name: {}, Close Approach Date: {:?}, Miss Distance (km): {:?}",
+                comet.name, comet.close_approach_date, comet.miss_distance
+            );
+        }
     }
 
-    println!("\nSpace Programs:");
-    for program in space_program_data {
-        println!(
-            "Name: {}, Description: {:?}, Agency: {:?}",
-            program.name, program.description, program.agency
-        );
+    if space_program_limit > 0 {
+        println!("\nSpace Programs:");
+        for program in space_program_data.into_iter().take(space_program_limit) {
+            println!(
+                "Name: {}, Description: {:?}, Agency: {:?}",
+                program.name, program.description, program.agency
+            );
+        }
     }
 
     Ok(())
+}
+
+fn get_user_choice(prompt: &str) -> String {
+    print!("{}", prompt);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
+
+fn get_user_input(prompt: &str) -> String {
+    print!("{}", prompt);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
 }
 
 #[derive(Deserialize, Debug)]
