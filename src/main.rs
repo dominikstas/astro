@@ -7,19 +7,31 @@ use std::io::{self, Write};
 async fn main() -> Result<(), Error> {
     println!("Fetching astronomy data...");
 
-    let comet_data = fetch_nearby_comets().await?;
-    let space_program_data = fetch_space_programs().await?;
+    let mut comet_data = fetch_nearby_comets().await?;
+    let mut space_program_data = fetch_space_programs().await?;
 
     let comet_choice = get_user_choice("Do you want to see the comet data? (yes/no): ");
     let comet_limit = if comet_choice.to_lowercase() == "yes" {
-        get_user_input("How many comets do you want to see?: ").parse::<usize>().unwrap_or(10)
+        let limit = get_user_input("How many comets do you want to see?: ").parse::<usize>().unwrap_or(10);
+        let sort_choice = get_user_input("Sort comet data by (1) Distance or (2) Time: ").parse::<u8>().unwrap_or(1);
+        if sort_choice == 1 {
+            comet_data.sort_by(|a, b| a.miss_distance.as_deref().unwrap_or("0").parse::<f64>().unwrap_or(0.0).partial_cmp(&b.miss_distance.as_deref().unwrap_or("0").parse::<f64>().unwrap_or(0.0)).unwrap());
+        } else {
+            comet_data.sort_by(|a, b| a.close_approach_date.cmp(&b.close_approach_date));
+        }
+        limit
     } else {
         0
     };
 
     let space_program_choice = get_user_choice("Do you want to see the space program data? (yes/no): ");
     let space_program_limit = if space_program_choice.to_lowercase() == "yes" {
-        get_user_input("How many space programs do you want to see?: ").parse::<usize>().unwrap_or(10)
+        let limit = get_user_input("How many space programs do you want to see?: ").parse::<usize>().unwrap_or(10);
+        let sort_choice = get_user_input("Sort space program data by (1) Launch Time: ").parse::<u8>().unwrap_or(1);
+        if sort_choice == 1 {
+            space_program_data.sort_by(|a, b| a.name.cmp(&b.name)); // Assuming name contains launch time info for sorting
+        }
+        limit
     } else {
         0
     };
