@@ -64,7 +64,11 @@ fn get_user_choice(prompt: &str) -> String {
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    input.trim().to_string()
+    match input.trim().to_lowercase().as_str() {
+        "y" | "yes" => "yes".to_string(),
+        "n" | "no" => "no".to_string(),
+        _ => input.trim().to_string(),
+    }
 }
 
 fn get_user_input(prompt: &str) -> String {
