@@ -7,48 +7,50 @@ use std::io::{self, Write};
 async fn main() -> Result<(), Error> {
     println!("Fetching astronomy data...");
 
-    let mut comet_data = fetch_nearby_comets().await?;
-    let mut space_program_data = fetch_space_programs().await?;
+    let comet_data = fetch_nearby_comets().await?;
+    let space_program_data = fetch_space_programs().await?;
 
     let comet_choice = get_user_choice("Do you want to see the comet data? (yes/no): ");
     let comet_limit = if comet_choice.to_lowercase() == "yes" {
         let limit = get_user_input("How many comets do you want to see?: ").parse::<usize>().unwrap_or(10);
         let sort_choice = get_user_input("Sort comet data by (1) Distance or (2) Time: ").parse::<u8>().unwrap_or(1);
+        let mut sorted_comet_data = comet_data.clone();
         if sort_choice == 1 {
-            comet_data.sort_by(|a, b| a.miss_distance.as_deref().unwrap_or("0").parse::<f64>().unwrap_or(0.0).partial_cmp(&b.miss_distance.as_deref().unwrap_or("0").parse::<f64>().unwrap_or(0.0)).unwrap());
+            sorted_comet_data.sort_by(|a, b| a.miss_distance.as_ref().map_or(0.0, |md| md.kilometers.parse::<f64>().unwrap_or(0.0)).partial_cmp(&b.miss_distance.as_ref().map_or(0.0, |md| md.kilometers.parse::<f64>().unwrap_or(0.0))).unwrap());
         } else {
-            comet_data.sort_by(|a, b| a.close_approach_date.cmp(&b.close_approach_date));
+            sorted_comet_data.sort_by(|a, b| a.close_approach_date.cmp(&b.close_approach_date));
         }
-        limit
+        sorted_comet_data.into_iter().take(limit).collect::<Vec<_>>()
     } else {
-        0
+        vec![]
     };
 
     let space_program_choice = get_user_choice("Do you want to see the space program data? (yes/no): ");
     let space_program_limit = if space_program_choice.to_lowercase() == "yes" {
         let limit = get_user_input("How many space programs do you want to see?: ").parse::<usize>().unwrap_or(10);
         let sort_choice = get_user_input("Sort space program data by (1) Launch Time: ").parse::<u8>().unwrap_or(1);
+        let mut sorted_space_program_data = space_program_data.clone();
         if sort_choice == 1 {
-            space_program_data.sort_by(|a, b| a.name.cmp(&b.name)); // Assuming name contains launch time info for sorting
+            sorted_space_program_data.sort_by(|a, b| a.name.cmp(&b.name)); // Assuming name contains launch time info for sorting
         }
-        limit
+        sorted_space_program_data.into_iter().take(limit).collect::<Vec<_>>()
     } else {
-        0
+        vec![]
     };
 
-    if comet_limit > 0 {
+    if !comet_limit.is_empty() {
         println!("\nNearby Comets:");
-        for comet in comet_data.into_iter().take(comet_limit) {
+        for comet in comet_limit {
             println!(
                 "Name: {}, Close Approach Date: {:?}, Miss Distance (km): {:?}",
-                comet.name, comet.close_approach_date, comet.miss_distance
+                comet.name, comet.close_approach_date, comet.miss_distance.as_ref().map_or("N/A".to_string(), |md| md.kilometers.clone())
             );
         }
     }
 
-    if space_program_limit > 0 {
+    if !space_program_limit.is_empty() {
         println!("\nSpace Programs:");
-        for program in space_program_data.into_iter().take(space_program_limit) {
+        for program in space_program_limit {
             println!(
                 "Name: {}, Description: {:?}, Agency: {:?}",
                 program.name, program.description, program.agency
@@ -64,11 +66,7 @@ fn get_user_choice(prompt: &str) -> String {
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    match input.trim().to_lowercase().as_str() {
-        "y" | "yes" => "yes".to_string(),
-        "n" | "no" => "no".to_string(),
-        _ => input.trim().to_string(),
-    }
+    input.trim().to_string()
 }
 
 fn get_user_input(prompt: &str) -> String {
@@ -79,13 +77,18 @@ fn get_user_input(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct Comet {
     name: String,
     #[serde(rename = "close_approach_date")]
     close_approach_date: Option<String>,
-    #[serde(rename = "miss_distance_kilometers")]
-    miss_distance: Option<String>,
+    #[serde(rename = "miss_distance")]
+    miss_distance: Option<MissDistance>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct MissDistance {
+    kilometers: String,
 }
 
 async fn fetch_nearby_comets() -> Result<Vec<Comet>, Error> {
@@ -105,7 +108,7 @@ async fn fetch_nearby_comets() -> Result<Vec<Comet>, Error> {
     Ok(comets)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct SpaceProgram {
     name: String,
     description: Option<String>,
